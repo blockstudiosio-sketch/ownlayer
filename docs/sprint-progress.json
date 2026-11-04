@@ -1,5 +1,5 @@
 {
-  "sprint_run": 6,
+  "sprint_run": 7,
   "started_at_utc": "2026-11-04T12:36:00Z",
   "goal": "10-hour unattended implementation and verified progress report",
   "notes": "This file tracks scheduled automation iterations, not product completion. Increment sprint_run on each future scheduled run.",
@@ -47,6 +47,14 @@
     {
       "run": 6,
       "changes": "Add complete ancestor/descendant dataset lineage traversal, missing-parent and cycle diagnostics, navigable history UI and regression tests.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 7,
+      "changes": "Prevent deletion of ancestor datasets with derived children/grandchildren; fresh Firestore snapshot precheck and browser-local guard, with regression tests. Cloud guard is non-transactional and not a substitute for server-side enforcement.",
       "branch": "development/after-client-demo",
       "commit_status": "committed",
       "ci_status": "pending",

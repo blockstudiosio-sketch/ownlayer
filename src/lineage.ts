@@ -36,3 +36,15 @@ export function traceLineage(selectedId:string,records:DatasetRecord[]):LineageT
  descendants.sort((a,b)=>b.createdAt-a.createdAt||a.id.localeCompare(b.id));
  return {nodes,descendants,complete:nodes.length>0&&nodes.every(n=>n.kind==='dataset')};
 }
+
+/** Prevent a user from deleting an ancestor while derived datasets still exist.
+ * This is an application-level guard; backend enforcement requires a transaction
+ * and security rules that must be coordinated with the shared Firebase project.
+ */
+export function assertNoDescendants(selectedId:string,records:DatasetRecord[]):void{
+ const dependents=traceLineage(selectedId,records).descendants;
+ if(dependents.length){
+  const names=dependents.slice(0,3).map(record=>record.name).join(', ');
+  throw new Error('Cannot delete this dataset: '+dependents.length+' derived dataset(s) depend on it ('+names+(dependents.length>3?', …':'')+'). Delete derived datasets first.');
+ }
+}

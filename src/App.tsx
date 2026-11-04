@@ -11,7 +11,7 @@ import type {DatasetRecord,Preview,SourceRecord} from './types';
 import {cleaned,previewFile,toCsv} from './parse';
 import {generateStatisticalDemo} from './synthetic';
 import {evaluatePreview,type EvaluationSummary} from './evaluation';
-import {traceLineage} from './lineage';
+import {assertNoDescendants,traceLineage} from './lineage';
 import {addSource,completePreview,downloadDataset,removeDataset,saveDataset,watchDatasets,watchSources} from './store';
 
 type Page='home'|'datasets'|'sources'|'quality'|'governance'|'ai'|'settings';
@@ -152,7 +152,9 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
   });
  }
  async function deleteSelected(){
-  if(!selected||!window.confirm('Delete "'+selected.name+'" and its original file? This cannot be undone.'))return;
+  if(!selected)return;
+  try{assertNoDescendants(selected.id,datasets);}catch(e){setError(e instanceof Error?e.message:'Cannot delete a dataset with descendants.');return;}
+  if(!window.confirm('Delete "'+selected.name+'" and its original file? This cannot be undone.'))return;
   await act('delete',async()=>{await removeDataset(user.uid,selected);leave();setNotice('Dataset deleted.');});
  }
  async function prepare(){

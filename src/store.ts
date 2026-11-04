@@ -4,6 +4,7 @@ import {deleteObject,getDownloadURL,ref,uploadBytes} from 'firebase/storage';
 import {db,storage} from './firebase';
 import type {DatasetRecord,SourceRecord,Preview} from './types';
 import {formatOf,profileOf} from './parse';
+import {assertNoDescendants} from './lineage';
 
 const services=()=>{
  if(!db||!storage)throw new Error('Configure Firebase before using the workspace.');
@@ -49,6 +50,11 @@ export async function saveDataset(uid:string,file:File,preview:Preview,parentId?
 export async function removeDataset(uid:string,item:DatasetRecord):Promise<void>{
  if(isDemoUid(uid))return demoRemove(item);
  const {db,storage}=services();
+ // Fresh snapshot checks current descendants before deletion. This is not an
+ // atomic server-side referential-integrity guarantee across clients.
+ const {getDocs}=await import('firebase/firestore');
+ const snapshot=await getDocs(collection(db,'ownlayerUsers',uid,'datasets'));
+ assertNoDescendants(item.id,snapshot.docs.map(d=>({...d.data() as DatasetRecord,id:d.id})));
  // Delete the file first. If Storage fails, keep the Firestore record so users
  // can retry instead of silently leaving an undeletable orphaned file.
  // A successful Storage deletion followed by Firestore failure is retryable:
