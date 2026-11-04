@@ -27,6 +27,7 @@ const rng=(seed:number)=>{
 export function generateStatisticalDemo(input:Preview,count:number,seed=42):Preview{
  if(!Number.isSafeInteger(count)||count<1||count>5000)throw new Error('Choose between 1 and 5,000 synthetic preview rows.');
  if(!Number.isSafeInteger(seed)||seed<0||seed>4294967295)throw new Error('Seed must be an integer from 0 to 4294967295.');
+ if(input.sampled||input.estimatedTotal===null)throw new Error('Statistical generation requires a fully parsed source file, not a partial preview.');
  if(input.rows.length<3)throw new Error('At least three source records are needed for this statistical demo.');
  if(input.columns.length===0||input.columns.length>40)throw new Error('This demo accepts between 1 and 40 columns.');
  const random=rng(seed);
@@ -39,6 +40,12 @@ export function generateStatisticalDemo(input:Preview,count:number,seed=42):Prev
   if(!present.length)return {column,missingRate:1,draw:()=>''};
   const missingRate=(values.length-present.length)/values.length;
   if(present.every(isNumeric)){
+   // Mostly-unique integer columns can be record identifiers even when their
+   // headers are innocuous. Refuse rather than synthesize realistic IDs.
+   const uniqueRatio=new Set(present).size/present.length;
+   if(present.length>=20&&uniqueRatio>=0.9&&present.every(v=>/^-?\d+$/.test(v))){
+    throw new Error('Mostly unique integer column "'+column+'" may be an identifier. Remove it before using this demo.');
+   }
    const nums=present.map(Number),min=Math.min(...nums),max=Math.max(...nums);
    const precision=Math.min(4,Math.max(...present.map(v=>(v.split('.')[1]||'').replace(/e.*$/i,'').length)));
    return {column,missingRate,draw:()=> {
