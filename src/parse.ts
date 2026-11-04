@@ -6,18 +6,26 @@ export const formatOf=(name:string):DatasetFormat=>{
 };
 const stringify=(v:unknown):string=>v==null?'':typeof v==='string'?v:typeof v==='object'?JSON.stringify(v):String(v);
 function delimited(text:string,sep:string,truncated=false):string[][]{
- const out:string[][]=[];let row:string[]=[],field='',quoted=false;
+ const out:string[][]=[];let row:string[]=[],field='',quoted=false,closedQuote=false;
  for(let i=0;i<text.length;i++){
   const c=text[i];
-  if(c==='"'){if(quoted&&text[i+1]==='"'){field+='"';i++;}else quoted=!quoted;}
-  else if(c===sep&&!quoted){row.push(field);field='';}
+  if(c==='"'){
+   if(quoted&&text[i+1]==='"'){field+='"';i++;}
+   else if(quoted){quoted=false;closedQuote=true;}
+   else if(!field.length&&!closedQuote){quoted=true;}
+   else throw new Error('Unexpected quotation mark in delimited file.');
+  }
+  else if(c===sep&&!quoted){row.push(field);field='';closedQuote=false;}
   else if((c==='\n'||c==='\r')&&!quoted){
    if(c==='\r'&&text[i+1]==='\n')i++;
-   row.push(field);field='';
+   row.push(field);field='';closedQuote=false;
    if(row.some(Boolean))out.push(row);
    row=[];
    if(out.length>50000)throw new Error('This preview exceeds the current 50,000-row local parsing limit.');
-  }else field+=c;
+  }else {
+   if(closedQuote&&!quoted)throw new Error('Unexpected characters after a quoted field.');
+   field+=c;
+  }
  }
  // A byte-limited preview can end half-way through a CSV field, quoted value,
  // or UTF-8 record. Drop that incomplete trailing record rather than invent
@@ -39,7 +47,12 @@ export function parseText(input:string,format:DatasetFormat,truncated=false):Pre
  if(format==='csv'||format==='tsv'){
   const arr=delimited(text,format==='csv'?',':'\t',truncated);
   const columns=headers(arr.shift()||[]);
-  const rows=arr.map(cells=>Object.fromEntries(columns.map((col,i)=>[col,cells[i]??''])));
+  if(!columns.length)throw new Error('A delimited file must include a header row.');
+  if(columns.length>500)throw new Error('A delimited file exceeds the 500-column local parsing limit.');
+  const rows=arr.map((cells,index)=>{
+   if(cells.length>columns.length)throw new Error('Row '+(index+2)+' has more fields than the header; data would be lost.');
+   return Object.fromEntries(columns.map((col,i)=>[col,cells[i]??'']));
+  });
   return {columns,rows,estimatedTotal:truncated?null:rows.length,sampled:truncated,message:truncated?'Partial file preview: full record count and quality not evaluated.':undefined};
  }
  if(format==='json'||format==='jsonl'){
@@ -51,6 +64,7 @@ export function parseText(input:string,format:DatasetFormat,truncated=false):Pre
   const values:unknown[]=format==='json'?(Array.isArray(parsedJson)?parsedJson:[parsedJson]):lines.filter(line=>line.trim().length>0).map(line=>JSON.parse(line) as unknown);
   if(values.length>50000)throw new Error('This file exceeds the current 50,000-record local parsing limit.');
   const rawHeaders=Array.from(new Set(values.flatMap(x=>x!==null&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x):['value'])));
+  if(rawHeaders.length>500)throw new Error('This JSON file exceeds the 500-column local parsing limit.');
   const columns=headers(rawHeaders);
   const rows=values.map(value=>Object.fromEntries(columns.map((col,i)=>[col,value!==null&&typeof value==='object'&&!Array.isArray(value)?stringify((value as Record<string,unknown>)[rawHeaders[i]]):stringify(value)])));
   return {columns,rows,estimatedTotal:truncated?null:rows.length,sampled:truncated,message:truncated?'Partial JSONL preview only.':undefined};
@@ -91,6 +105,7 @@ export function cleaned(preview:Preview,trim:boolean,dedupe:boolean):Row[]{
  });
 }
 export function toCsv(columns:string[],rows:Row[]):string{
- const esc=(s:string)=>/[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+ const safe=(s:string)=>/^[\s\uFEFF]*[=+@-]/.test(s)?"'"+s:s;
+ const esc=(s:string)=>{const value=safe(s);return /[",\r\n]/.test(value)?'"'+value.replace(/"/g,'""')+'"':value;};
  return [columns.map(esc).join(','),...rows.map(row=>columns.map(c=>esc(row[c]??'')).join(','))].join('\r\n')+'\r\n';
 }

@@ -11,6 +11,8 @@ import type {DatasetRecord,Preview,SourceRecord} from './types';
 import {cleaned,previewFile,toCsv} from './parse';
 import {generateStatisticalDemo} from './synthetic';
 import {evaluatePreview,type EvaluationSummary} from './evaluation';
+import {assertNoDescendants,traceLineage} from './lineage';
+import {qualityReport,type QualityReport} from './quality';
 import {addSource,completePreview,downloadDataset,removeDataset,saveDataset,watchDatasets,watchSources} from './store';
 
 type Page='home'|'datasets'|'sources'|'quality'|'governance'|'ai'|'settings';
@@ -116,10 +118,11 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
  const [search,setSearch]=useState(''),[filter,setFilter]=useState('all'),[filePreview,setFilePreview]=useState<Preview|null>(null);
  const [sourceModal,setSourceModal]=useState(false),[sourceName,setSourceName]=useState(''),[sourceProvider,setSourceProvider]=useState<SourceRecord['provider']>('github'),[sourceLocator,setSourceLocator]=useState('');
  const [fileSearch,setFileSearch]=useState(''),[trim,setTrim]=useState(true),[deduplicate,setDeduplicate]=useState(true);
- const [prepared,setPrepared]=useState<Preview|null>(null),[mobileMenu,setMobileMenu]=useState(false);
+ const [prepared,setPrepared]=useState<Preview|null>(null),[qualityDetails,setQualityDetails]=useState<QualityReport|null>(null),[mobileMenu,setMobileMenu]=useState(false);
  const [syntheticSource,setSyntheticSource]=useState(''),[syntheticCount,setSyntheticCount]=useState(100),[syntheticSeed,setSyntheticSeed]=useState(42),[syntheticPreview,setSyntheticPreview]=useState<Preview|null>(null),[syntheticEvaluation,setSyntheticEvaluation]=useState<EvaluationSummary|null>(null);
  const inputRef=useRef<HTMLInputElement>(null);
  const selected=datasets.find(d=>d.id===selectedId)||null;
+ const lineage=useMemo(()=>selectedId?traceLineage(selectedId,datasets):null,[selectedId,datasets]);
  const shown=useMemo(()=>datasets.filter(d=>(filter==='all'||d.status===filter||d.format===filter)&&
   (!search||[d.name,d.source,d.format].join(' ').toLowerCase().includes(search.toLowerCase()))),[datasets,filter,search]);
  useEffect(()=>{
@@ -127,7 +130,7 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
   const offSources=watchSources(user.uid,setSources,setError);
   return()=>{offData();offSources();};
  },[user.uid]);
- useEffect(()=>{setFilePreview(null);setPrepared(null);setFileSearch('');if(selected?.sample)setFilePreview(selected.sample);},[selectedId,selected?.sample]);
+ useEffect(()=>{setFilePreview(null);setPrepared(null);setQualityDetails(null);setFileSearch('');if(selected?.sample)setFilePreview(selected.sample);},[selectedId,selected?.sample]);
  function open(d:DatasetRecord){setSelectedId(d.id);setTab('Overview');setPage('datasets');setMobileMenu(false);}
  function leave(){setSelectedId(null);setFilePreview(null);setPrepared(null);}
  function navigate(next:Page){leave();setPage(next);setMobileMenu(false);}
@@ -150,7 +153,9 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
   });
  }
  async function deleteSelected(){
-  if(!selected||!window.confirm('Delete "'+selected.name+'" and its original file? This cannot be undone.'))return;
+  if(!selected)return;
+  try{assertNoDescendants(selected.id,datasets);}catch(e){setError(e instanceof Error?e.message:'Cannot delete a dataset with descendants.');return;}
+  if(!window.confirm('Delete "'+selected.name+'" and its original file? This cannot be undone.'))return;
   await act('delete',async()=>{await removeDataset(user.uid,selected);leave();setNotice('Dataset deleted.');});
  }
  async function prepare(){
@@ -233,6 +238,15 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
       <div className="insight-rail"><Panel title="File information"><div className="kv"><span>Format</span><b>{formatLabel(selected.format)}</b></div><div className="kv"><span>Uploaded</span><b>{date(selected.createdAt)}</b></div><div className="kv"><span>File size</span><b>{size(selected.size)}</b></div><div className="kv"><span>Stored rows</span><b>{number(selected.rows)}</b></div><div className="kv"><span>Source</span><b>{selected.source}</b></div></Panel>
        <Panel title="What to do next"><div className="next-actions"><button onClick={()=>setTab('Quality')}><Activity size={17}/>Review quality<ArrowRight size={16}/></button><button onClick={()=>setTab('Prepare')}><SlidersHorizontal size={17}/>Clean & prepare<ArrowRight size={16}/></button><button onClick={()=>setTab('Lineage')}><FolderTree size={17}/>View lineage<ArrowRight size={16}/></button></div></Panel></div>
      </div>}
+     {tab==='Quality'&&<Panel title="Column-level profiling" aside={<Button disabled={!!busy||selected.size>2*1024*1024||!['csv','tsv','json','jsonl'].includes(selected.format)} onClick={()=>void act('quality-full',async()=>{const full=await completePreview(selected);setQualityDetails(qualityReport(full));setNotice('Full-file quality report calculated locally.');})}>{busy==='quality-full'?'Profiling…':'Analyze full file'}</Button>}>
+      <div className="quality-profile-block">
+       <p className="muted small">Optional local analysis of the complete file (up to 2 MB). No model inference or server job. Existing stored summary can reflect a sample.</p>
+       {qualityDetails?<><div className="quality-metrics"><div><span>Completeness</span><strong>{qualityDetails.completenessPct}%</strong></div><div><span>Duplicate rows</span><strong>{qualityDetails.duplicateRows}</strong></div><div><span>Columns analyzed</span><strong>{qualityDetails.columns}</strong></div></div>
+       <div className="table-scroll"><table className="data-table"><thead><tr><th>Column</th><th>Type</th><th>Missing</th><th>Distinct</th><th>Min</th><th>Max</th></tr></thead><tbody>
+       {qualityDetails.columnQuality.map(col=><tr key={col.column}><td>{col.column}</td><td>{col.inferredType}</td><td>{col.missing} ({col.missingPct}%)</td><td>{col.distinct}</td><td>{col.min??'—'}</td><td>{col.max??'—'}</td></tr>)}
+       </tbody></table></div></>:<p className="muted small">Click Analyze full file to compute per-column missingness, distinct values, inferred types, numeric bounds and duplicates.</p>}
+      </div>
+     </Panel>}
      {tab==='Quality'&&<div className="two-column"><Panel title="Data quality checks"><div className="quality-hero"><div><span className="eyebrow">QUALITY SUMMARY</span><h2>{selected.profile?.issues.length?'Needs review':'No issues detected'}</h2><p>{selected.profile?'Checked '+number(selected.profile.sampledRows)+' records. '+(selected.size>2*1024*1024?'Large file: sample results only.':'This profile reflects the parsed local file.'):'Quality has not been evaluated.'}</p></div><Status label={selected.profile?.issues.length?'Review needed':'Check complete'} tone={selected.profile?.issues.length?'warn':'good'}/></div>
        <div className="quality-metrics"><div><span>Missing cells</span><strong>{number(selected.profile?.missingCells)}</strong></div><div><span>Duplicate records</span><strong>{number(selected.profile?.duplicates)}</strong></div><div><span>Inspected records</span><strong>{number(selected.profile?.sampledRows)}</strong></div></div>
        <div className="issues-list">{selected.profile?.issues.length?selected.profile.issues.map((issue,i)=><div key={i}><CircleAlert size={16}/>{issue}</div>):<div className="no-issues"><CheckCircle2 size={17}/> No detected issues within evaluated data.</div>}</div></Panel>
@@ -245,7 +259,21 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
         {selected.size>2*1024*1024&&<p className="small muted">File is over 2 MB. Server-side cleaning must be implemented before processing it safely.</p>}
        </Panel><Panel title="Before & after">{prepared?<><div className="compare-stats"><div><span>Before</span><strong>{number(selected.rows)}</strong><small>Records</small></div><ArrowRight size={18}/><div><span>After</span><strong>{number(prepared.estimatedTotal)}</strong><small>Records</small></div></div><p className="small muted">Preview of the transformed records. Save to create a separate dataset.</p><RowsTable preview={{...prepared,rows:prepared.rows.slice(0,12)}} limit={12}/></>
         :<Empty icon={RefreshCw} title="Preview your changes" description="Choose rules, then preview the result before creating a new dataset."/>}</Panel></div>}
-     {tab==='Lineage'&&<Panel title="Version and lineage"><div className="lineage"><div className="lineage-node"><span className="lineage-icon"><Database size={19}/></span><div><b>{selected.parentId?'Derived dataset':'Original dataset'}</b><p>{selected.name}</p><small>Saved {date(selected.createdAt)}</small></div></div>{selected.parentId&&<><div className="lineage-link"/><div className="lineage-node"><span className="lineage-icon"><FolderTree size={19}/></span><div><b>Source dataset</b><p>{datasets.find(d=>d.id===selected.parentId)?.name||'Source record no longer available'}</p><small>Origin preserved in metadata</small></div>{datasets.find(d=>d.id===selected.parentId)&&<Button variant="secondary" onClick={()=>{const origin=datasets.find(d=>d.id===selected.parentId);if(origin)open(origin);}}>Open</Button>}</div></>}</div></Panel>}
+     {tab==='Lineage'&&<Panel title="Version and lineage"><div className="lineage">
+      {lineage?.nodes.map((node,index)=><div key={node.kind+':'+(node.kind==='dataset'?node.dataset.id:node.id)}>
+       {index>0&&<div className="lineage-link"/>}
+       <div className="lineage-node"><span className="lineage-icon"><FolderTree size={19}/></span><div>
+        <b>{node.kind==='dataset'?(index===0?'Selected dataset':node.dataset.parentId?'Ancestor dataset':'Root dataset'):node.kind==='cycle'?'Cycle detected':'Missing ancestor'}</b>
+        <p>{node.kind==='dataset'?node.dataset.name:node.id}</p>
+        <small>{node.kind==='dataset'?'Saved '+date(node.dataset.createdAt):node.kind==='cycle'?'Invalid lineage metadata; traversal stopped.':'Source record no longer available; history is incomplete.'}</small>
+       </div>
+       {node.kind==='dataset'&&index>0&&<Button variant="secondary" onClick={()=>open(node.dataset)}>Open</Button>}
+       </div></div>)}
+      {lineage&&!lineage.complete&&<p className="muted small" role="alert">Lineage incomplete: missing or cyclic ancestor metadata. Do not treat this chain as a verified audit trail.</p>}
+      <div className="lineage-children"><strong>Derived datasets ({lineage?.descendants.length||0})</strong>
+       {lineage?.descendants.length?lineage.descendants.map(child=><div key={child.id} className="lineage-node"><span className="lineage-icon"><Database size={18}/></span><div><b>{child.name}</b><small>Saved {date(child.createdAt)}</small></div><Button variant="secondary" onClick={()=>open(child)}>Open</Button></div>):<p className="muted small">No known descendants in this workspace.</p>}
+      </div>
+     </div></Panel>}
     </>
     :page==='home'?<>
      <div className="page-title"><div><span className="eyebrow">YOUR WORKSPACE</span><h1>Good to see you.</h1><p>Your data foundation, at a glance.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>navigate('sources')}><Plus size={16}/> Connect source</Button><Button onClick={()=>inputRef.current?.click()}><Upload size={16}/> Upload dataset</Button></div></div>

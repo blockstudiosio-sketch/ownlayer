@@ -1,5 +1,6 @@
 import type {DatasetRecord,Preview,SourceRecord,DatasetFormat} from './types';
 import {parseText,profileOf,toCsv,formatOf} from './parse';
+import {assertNoDescendants} from './lineage';
 
 export const isDemoUid=(uid:string)=>uid==='ownlayer-demo';
 const KEY='ownlayer:demo:v1:';
@@ -113,6 +114,7 @@ export async function demoSave(file:File,preview:Preview,parentId?:string,origin
 }
 export async function demoRemove(item:DatasetRecord){
  ensureSeeded();
+ assertNoDescendants(item.id,datasets());
  write('datasets',datasets().filter(d=>d.id!==item.id));
  localStorage.removeItem(KEY+'file:'+item.id);
  notify();

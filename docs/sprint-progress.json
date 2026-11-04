@@ -1,5 +1,5 @@
 {
-  "sprint_run": 1,
+  "sprint_run": 10,
   "started_at_utc": "2026-11-04T12:36:00Z",
   "goal": "10-hour unattended implementation and verified progress report",
   "notes": "This file tracks scheduled automation iterations, not product completion. Increment sprint_run on each future scheduled run.",
@@ -11,6 +11,78 @@
       "changes": "Reject incomplete source previews and likely numeric identifier columns in statistical demo; add regression tests.",
       "commit_status": "committed",
       "ci_status": "pending"
+    },
+    {
+      "run": 2,
+      "changes": "Harden CSV/TSV parsing against malformed quotes, excess fields, empty headers and oversized schemas; neutralize spreadsheet formula cells on CSV export; add parser security regression tests.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed_pending_push",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 3,
+      "changes": "Add deterministic per-column schema inference and complete-dataset drift checks with regression tests. Track missing-rate shifts, removed/added columns and type changes; reject sampled inputs.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 4,
+      "changes": "Fix CSV formula neutralization and quoting, add spreadsheet-injection regressions, align schema-drift expectation for empty-column transition.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 5,
+      "changes": "Guard synthetic evaluation against sampled or incomplete inputs, mismatched schemas, duplicate columns and inaccurate row counts; add regression tests.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 6,
+      "changes": "Add complete ancestor/descendant dataset lineage traversal, missing-parent and cycle diagnostics, navigable history UI and regression tests.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 7,
+      "changes": "Prevent deletion of ancestor datasets with derived children/grandchildren; fresh Firestore snapshot precheck and browser-local guard, with regression tests. Cloud guard is non-transactional and not a substitute for server-side enforcement.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 8,
+      "changes": "Implement complete-dataset column quality report with missingness, distinct counts, inferred types, numeric bounds, duplicates and safety guards; add regression tests.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 9,
+      "changes": "Wire full-file per-column quality analysis into dataset Quality tab, with explicit 2 MB and format guards; preserve white UI and display real metrics only after user-triggered complete-file parsing.",
+      "branch": "development/after-client-demo",
+      "commit_status": "pending",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 10,
+      "changes": "Reject schema mismatch and empty headers during quality profiling; validate ISO calendar dates rather than Date.parse normalization; add regression tests.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
     }
   ]
 }
