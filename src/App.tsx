@@ -2,13 +2,13 @@ import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,type User} from 'firebase/auth';
 import {
  Activity,ArrowDownToLine,ArrowLeft,ArrowRight,BarChart3,Check,CheckCircle2,ChevronRight,
- CircleAlert,Clock3,Cloud,Database,FileCode2,FileSpreadsheet,FileText,FolderTree,
+ CircleAlert,Cloud,Database,FileCode2,FileSpreadsheet,FileText,FolderTree,
  HardDrive,Layers3,LayoutDashboard,LockKeyhole,LogOut,Menu,Plus,RefreshCw,Search,
  Settings2,ShieldCheck,SlidersHorizontal,Sparkles,Trash2,Upload,Workflow,X
 } from 'lucide-react';
 import {auth,configured} from './firebase';
 import type {DatasetRecord,Preview,SourceRecord} from './types';
-import {cleaned,formatOf,previewFile,profileOf,toCsv} from './parse';
+import {cleaned,previewFile,toCsv} from './parse';
 import {addSource,completePreview,downloadDataset,removeDataset,saveDataset,watchDatasets,watchSources} from './store';
 
 type Page='home'|'datasets'|'sources'|'quality'|'governance'|'ai'|'settings';
