@@ -10,6 +10,7 @@ import {auth,configured} from './firebase';
 import type {DatasetRecord,Preview,SourceRecord} from './types';
 import {cleaned,previewFile,toCsv} from './parse';
 import {generateStatisticalDemo} from './synthetic';
+import {evaluatePreview,type EvaluationSummary} from './evaluation';
 import {addSource,completePreview,downloadDataset,removeDataset,saveDataset,watchDatasets,watchSources} from './store';
 
 type Page='home'|'datasets'|'sources'|'quality'|'governance'|'ai'|'settings';
@@ -116,7 +117,7 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
  const [sourceModal,setSourceModal]=useState(false),[sourceName,setSourceName]=useState(''),[sourceProvider,setSourceProvider]=useState<SourceRecord['provider']>('github'),[sourceLocator,setSourceLocator]=useState('');
  const [fileSearch,setFileSearch]=useState(''),[trim,setTrim]=useState(true),[deduplicate,setDeduplicate]=useState(true);
  const [prepared,setPrepared]=useState<Preview|null>(null),[mobileMenu,setMobileMenu]=useState(false);
- const [syntheticSource,setSyntheticSource]=useState(''),[syntheticCount,setSyntheticCount]=useState(100),[syntheticSeed,setSyntheticSeed]=useState(42),[syntheticPreview,setSyntheticPreview]=useState<Preview|null>(null);
+ const [syntheticSource,setSyntheticSource]=useState(''),[syntheticCount,setSyntheticCount]=useState(100),[syntheticSeed,setSyntheticSeed]=useState(42),[syntheticPreview,setSyntheticPreview]=useState<Preview|null>(null),[syntheticEvaluation,setSyntheticEvaluation]=useState<EvaluationSummary|null>(null);
  const inputRef=useRef<HTMLInputElement>(null);
  const selected=datasets.find(d=>d.id===selectedId)||null;
  const shown=useMemo(()=>datasets.filter(d=>(filter==='all'||d.status===filter||d.format===filter)&&
@@ -177,7 +178,9 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
    const source=eligibleSynthetic.find(d=>d.id===syntheticSource);
    if(!source)throw new Error('Choose an eligible source dataset first.');
    const preview=await completePreview(source);
-   setSyntheticPreview(generateStatisticalDemo(preview,syntheticCount,syntheticSeed));
+   const generated=generateStatisticalDemo(preview,syntheticCount,syntheticSeed);
+   setSyntheticPreview(generated);
+   setSyntheticEvaluation(evaluatePreview(preview,generated));
    setNotice('Local statistical preview generated. No AI model was called, and no files were saved.');
   });
  }
@@ -189,7 +192,7 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
    const name=source.name.replace(/\.[^.]+$/,'')+'_statistical_demo.csv';
    const file=new File([toCsv(syntheticPreview.columns,syntheticPreview.rows)],name,{type:'text/csv'});
    const id=await saveDataset(user.uid,file,await previewFile(file),source.id,'Statistical demo');
-   setSyntheticPreview(null);setSelectedId(id);setPage('datasets');setTab('Overview');
+   setSyntheticPreview(null);setSyntheticEvaluation(null);setSelectedId(id);setPage('datasets');setTab('Overview');
    setNotice('Statistical demo saved as a separate dataset; source preserved.');
   });
  }
@@ -277,16 +280,28 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
      <div className="info-strip"><CircleAlert size={18}/><div><b>Not AI-generated and NOT privacy-preserving</b><p>This browser-based demo draws independent column samples and numeric/date ranges. It may repeat sensitive values and does not preserve relationships between columns. Only use non-sensitive test data. Real synthetic-data foundation model training and inference are still pending.</p></div></div>
      <Panel title="Generate a statistical demo">
       <div className="synthetic-form">
-       <label>Source dataset<select aria-label="Synthetic source dataset" value={syntheticSource} onChange={e=>{setSyntheticSource(e.target.value);setSyntheticPreview(null);}}>
+       <label>Source dataset<select aria-label="Synthetic source dataset" value={syntheticSource} onChange={e=>{setSyntheticSource(e.target.value);setSyntheticPreview(null);setSyntheticEvaluation(null);}}>
         <option value="">Select a dataset</option>{eligibleSynthetic.map(d=><option key={d.id} value={d.id}>{d.name} ({number(d.rows)} records)</option>)}
        </select></label>
-       <label>Output rows<input type="number" min="1" max="5000" aria-label="Synthetic row count" value={syntheticCount} onChange={e=>{setSyntheticCount(Number(e.target.value));setSyntheticPreview(null);}}/></label>
-       <label>Reproducible seed<input type="number" min="0" max="4294967295" aria-label="Synthetic seed" value={syntheticSeed} onChange={e=>{setSyntheticSeed(Number(e.target.value));setSyntheticPreview(null);}}/></label>
+       <label>Output rows<input type="number" min="1" max="5000" aria-label="Synthetic row count" value={syntheticCount} onChange={e=>{setSyntheticCount(Number(e.target.value));setSyntheticPreview(null);setSyntheticEvaluation(null);}}/></label>
+       <label>Reproducible seed<input type="number" min="0" max="4294967295" aria-label="Synthetic seed" value={syntheticSeed} onChange={e=>{setSyntheticSeed(Number(e.target.value));setSyntheticPreview(null);setSyntheticEvaluation(null);}}/></label>
        <Button onClick={()=>void generateSynthetic()} disabled={!syntheticSource||!!busy}>{busy==='synthetic'?'Generating…':'Generate preview'} <Sparkles size={16}/></Button>
       </div>
       {!eligibleSynthetic.length&&<p className="muted small synthetic-hint">Upload a CSV, TSV, JSON or JSONL file of 2 MB or less to use this preview. Sensitive identifier columns and high-cardinality text are blocked.</p>}
       {syntheticPreview&&<div className="synthetic-results">
        <div className="synthetic-result-head"><div><strong>{number(syntheticPreview.rows.length)} generated sample rows</strong><p>Independent statistical synthesis. No remote API requests were made.</p></div><Button onClick={()=>void saveSynthetic()} disabled={!!busy}>{busy==='synthetic-save'?'Saving…':'Save as new dataset'} <ArrowRight size={16}/></Button></div>
+       {syntheticEvaluation&&<div className="synthetic-evaluation">
+        <div className="synthetic-evaluation-heading"><strong>Basic data evaluation</strong><p>Computed from the original and generated records. These checks do not prove privacy, utility or model quality.</p></div>
+        <div className="synthetic-metric-grid">
+         <div><span>Schema match</span><strong>{syntheticEvaluation.schemaMatch?'Yes':'No'}</strong></div>
+         <div><span>New row combinations</span><strong>{syntheticEvaluation.noveltyPct}%</strong></div>
+         <div><span>Numeric in source range</span><strong>{syntheticEvaluation.numericInRangePct===null?'N/A':syntheticEvaluation.numericInRangePct+'%'}</strong></div>
+         <div><span>Category coverage</span><strong>{syntheticEvaluation.categoryCoveragePct===null?'N/A':syntheticEvaluation.categoryCoveragePct+'%'}</strong></div>
+         <div><span>Missing cells · source</span><strong>{syntheticEvaluation.sourceMissingPct}%</strong></div>
+         <div><span>Missing cells · generated</span><strong>{syntheticEvaluation.generatedMissingPct}%</strong></div>
+        </div>
+        <p className="muted small">Novel row combinations are not a privacy guarantee. Real evaluation also needs correlations, downstream utility, memorization/privacy attacks, and domain-specific validation.</p>
+       </div>}
        <RowsTable preview={syntheticPreview} limit={30}/>
        <p className="muted small synthetic-hint">{syntheticPreview.message}</p>
       </div>}

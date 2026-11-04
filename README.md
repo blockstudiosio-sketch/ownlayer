@@ -24,6 +24,7 @@ This is a working frontend foundation, **not yet a production-ready full AI plat
 - Dashboard, Datasets, Sources, Quality, Governance, AI Workflows and Settings pages.
 - Honest integration status: external source synchronization, model training and synthetic generation are **not** yet implemented.
 - GitHub Actions TypeScript checks, unit tests and production build.
+- Dataset evaluation metrics on generated records: schema match, exact-row novelty (not a privacy guarantee), numeric range, category coverage and missing-rate drift.
 - Experimental, **non-private statistical synthetic-data preview** based on low-cardinality categories and numeric/date ranges. This is a DEMO baseline, not an AI foundation model; sensitive columns are blocked, source files remain unchanged, and generated samples can be saved as separate datasets.
 
 ## Local setup
