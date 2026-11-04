@@ -12,6 +12,7 @@ import {cleaned,previewFile,toCsv} from './parse';
 import {generateStatisticalDemo} from './synthetic';
 import {evaluatePreview,type EvaluationSummary} from './evaluation';
 import {assertNoDescendants,traceLineage} from './lineage';
+import {qualityReport,type QualityReport} from './quality';
 import {addSource,completePreview,downloadDataset,removeDataset,saveDataset,watchDatasets,watchSources} from './store';
 
 type Page='home'|'datasets'|'sources'|'quality'|'governance'|'ai'|'settings';
@@ -117,7 +118,7 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
  const [search,setSearch]=useState(''),[filter,setFilter]=useState('all'),[filePreview,setFilePreview]=useState<Preview|null>(null);
  const [sourceModal,setSourceModal]=useState(false),[sourceName,setSourceName]=useState(''),[sourceProvider,setSourceProvider]=useState<SourceRecord['provider']>('github'),[sourceLocator,setSourceLocator]=useState('');
  const [fileSearch,setFileSearch]=useState(''),[trim,setTrim]=useState(true),[deduplicate,setDeduplicate]=useState(true);
- const [prepared,setPrepared]=useState<Preview|null>(null),[mobileMenu,setMobileMenu]=useState(false);
+ const [prepared,setPrepared]=useState<Preview|null>(null),[qualityDetails,setQualityDetails]=useState<QualityReport|null>(null),[mobileMenu,setMobileMenu]=useState(false);
  const [syntheticSource,setSyntheticSource]=useState(''),[syntheticCount,setSyntheticCount]=useState(100),[syntheticSeed,setSyntheticSeed]=useState(42),[syntheticPreview,setSyntheticPreview]=useState<Preview|null>(null),[syntheticEvaluation,setSyntheticEvaluation]=useState<EvaluationSummary|null>(null);
  const inputRef=useRef<HTMLInputElement>(null);
  const selected=datasets.find(d=>d.id===selectedId)||null;
@@ -129,7 +130,7 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
   const offSources=watchSources(user.uid,setSources,setError);
   return()=>{offData();offSources();};
  },[user.uid]);
- useEffect(()=>{setFilePreview(null);setPrepared(null);setFileSearch('');if(selected?.sample)setFilePreview(selected.sample);},[selectedId,selected?.sample]);
+ useEffect(()=>{setFilePreview(null);setPrepared(null);setQualityDetails(null);setFileSearch('');if(selected?.sample)setFilePreview(selected.sample);},[selectedId,selected?.sample]);
  function open(d:DatasetRecord){setSelectedId(d.id);setTab('Overview');setPage('datasets');setMobileMenu(false);}
  function leave(){setSelectedId(null);setFilePreview(null);setPrepared(null);}
  function navigate(next:Page){leave();setPage(next);setMobileMenu(false);}
@@ -237,6 +238,15 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
       <div className="insight-rail"><Panel title="File information"><div className="kv"><span>Format</span><b>{formatLabel(selected.format)}</b></div><div className="kv"><span>Uploaded</span><b>{date(selected.createdAt)}</b></div><div className="kv"><span>File size</span><b>{size(selected.size)}</b></div><div className="kv"><span>Stored rows</span><b>{number(selected.rows)}</b></div><div className="kv"><span>Source</span><b>{selected.source}</b></div></Panel>
        <Panel title="What to do next"><div className="next-actions"><button onClick={()=>setTab('Quality')}><Activity size={17}/>Review quality<ArrowRight size={16}/></button><button onClick={()=>setTab('Prepare')}><SlidersHorizontal size={17}/>Clean & prepare<ArrowRight size={16}/></button><button onClick={()=>setTab('Lineage')}><FolderTree size={17}/>View lineage<ArrowRight size={16}/></button></div></Panel></div>
      </div>}
+     {tab==='Quality'&&<Panel title="Column-level profiling" aside={<Button disabled={!!busy||selected.size>2*1024*1024||!['csv','tsv','json','jsonl'].includes(selected.format)} onClick={()=>void act('quality-full',async()=>{const full=await completePreview(selected);setQualityDetails(qualityReport(full));setNotice('Full-file quality report calculated locally.');})}>{busy==='quality-full'?'Profiling…':'Analyze full file'}</Button>}>
+      <div className="quality-profile-block">
+       <p className="muted small">Optional local analysis of the complete file (up to 2 MB). No model inference or server job. Existing stored summary can reflect a sample.</p>
+       {qualityDetails?<><div className="quality-metrics"><div><span>Completeness</span><strong>{qualityDetails.completenessPct}%</strong></div><div><span>Duplicate rows</span><strong>{qualityDetails.duplicateRows}</strong></div><div><span>Columns analyzed</span><strong>{qualityDetails.columns}</strong></div></div>
+       <div className="table-scroll"><table className="data-table"><thead><tr><th>Column</th><th>Type</th><th>Missing</th><th>Distinct</th><th>Min</th><th>Max</th></tr></thead><tbody>
+       {qualityDetails.columnQuality.map(col=><tr key={col.column}><td>{col.column}</td><td>{col.inferredType}</td><td>{col.missing} ({col.missingPct}%)</td><td>{col.distinct}</td><td>{col.min??'—'}</td><td>{col.max??'—'}</td></tr>)}
+       </tbody></table></div></>:<p className="muted small">Click Analyze full file to compute per-column missingness, distinct values, inferred types, numeric bounds and duplicates.</p>}
+      </div>
+     </Panel>}
      {tab==='Quality'&&<div className="two-column"><Panel title="Data quality checks"><div className="quality-hero"><div><span className="eyebrow">QUALITY SUMMARY</span><h2>{selected.profile?.issues.length?'Needs review':'No issues detected'}</h2><p>{selected.profile?'Checked '+number(selected.profile.sampledRows)+' records. '+(selected.size>2*1024*1024?'Large file: sample results only.':'This profile reflects the parsed local file.'):'Quality has not been evaluated.'}</p></div><Status label={selected.profile?.issues.length?'Review needed':'Check complete'} tone={selected.profile?.issues.length?'warn':'good'}/></div>
        <div className="quality-metrics"><div><span>Missing cells</span><strong>{number(selected.profile?.missingCells)}</strong></div><div><span>Duplicate records</span><strong>{number(selected.profile?.duplicates)}</strong></div><div><span>Inspected records</span><strong>{number(selected.profile?.sampledRows)}</strong></div></div>
        <div className="issues-list">{selected.profile?.issues.length?selected.profile.issues.map((issue,i)=><div key={i}><CircleAlert size={16}/>{issue}</div>):<div className="no-issues"><CheckCircle2 size={17}/> No detected issues within evaluated data.</div>}</div></Panel>

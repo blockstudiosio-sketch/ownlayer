@@ -1,5 +1,5 @@
 {
-  "sprint_run": 8,
+  "sprint_run": 9,
   "started_at_utc": "2026-11-04T12:36:00Z",
   "goal": "10-hour unattended implementation and verified progress report",
   "notes": "This file tracks scheduled automation iterations, not product completion. Increment sprint_run on each future scheduled run.",
@@ -65,6 +65,14 @@
       "changes": "Implement complete-dataset column quality report with missingness, distinct counts, inferred types, numeric bounds, duplicates and safety guards; add regression tests.",
       "branch": "development/after-client-demo",
       "commit_status": "committed",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 9,
+      "changes": "Wire full-file per-column quality analysis into dataset Quality tab, with explicit 2 MB and format guards; preserve white UI and display real metrics only after user-triggered complete-file parsing.",
+      "branch": "development/after-client-demo",
+      "commit_status": "pending",
       "ci_status": "pending",
       "live_demo_unchanged": true
     }
