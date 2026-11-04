@@ -21,7 +21,7 @@ test('missing parent is explicit rather than silently claiming a complete lineag
 test('cycles terminate and report corruption',()=>{
  const trace=traceLineage('a',[record('a','b'),record('b','a'),record('c','a')]);
  assert.deepEqual(trace.nodes.map(n=>n.kind),['dataset','dataset','cycle']);
- assert.deepEqual(trace.descendants.map(n=>n.id),['c','b']);
+ assert.deepEqual(trace.descendants.map(n=>n.id),['b','c']);
  assert.equal(trace.complete,false);
 });
 test('unknown selected id is reported as missing',()=>{
