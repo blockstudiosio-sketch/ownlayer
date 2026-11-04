@@ -105,6 +105,7 @@ export function cleaned(preview:Preview,trim:boolean,dedupe:boolean):Row[]{
  });
 }
 export function toCsv(columns:string[],rows:Row[]):string{
- const esc=(s:string)=>/[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+ const safe=(s:string)=>/^[\\s\\uFEFF]*[=+@\\-]/.test(s)?"'"+s:s;
+ const esc=(s:string)=>{const value=safe(s);return /[",\\r\\n]/.test(value)?'"'+value.replace(/"/g,'""')+'"':value;};
  return [columns.map(esc).join(','),...rows.map(row=>columns.map(c=>esc(row[c]??'')).join(','))].join('\r\n')+'\r\n';
 }
