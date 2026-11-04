@@ -1,5 +1,5 @@
 {
-  "sprint_run": 1,
+  "sprint_run": 2,
   "started_at_utc": "2026-11-04T12:36:00Z",
   "goal": "10-hour unattended implementation and verified progress report",
   "notes": "This file tracks scheduled automation iterations, not product completion. Increment sprint_run on each future scheduled run.",
@@ -11,6 +11,14 @@
       "changes": "Reject incomplete source previews and likely numeric identifier columns in statistical demo; add regression tests.",
       "commit_status": "committed",
       "ci_status": "pending"
+    },
+    {
+      "run": 2,
+      "changes": "Harden CSV/TSV parsing against malformed quotes, excess fields, empty headers and oversized schemas; neutralize spreadsheet formula cells on CSV export; add parser security regression tests.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed_pending_push",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
     }
   ]
 }
