@@ -14,8 +14,12 @@ export interface EvaluationSummary {
 const isNum=(v:string)=>/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(v)&&Number.isFinite(Number(v))&&!/^0\d/.test(v);
 const pct=(x:number,y:number)=>y?Math.round(x/y*1000)/10:0;
 export function evaluatePreview(source:Preview,generated:Preview):EvaluationSummary{
+ if(source.sampled||generated.sampled||source.estimatedTotal===null||generated.estimatedTotal===null)throw new Error('Full source and generated datasets are required for evaluation; sampled previews cannot produce reliable metrics.');
  if(!source.rows.length||!generated.rows.length||!source.columns.length)throw new Error('Evaluate nonempty source and generated samples.');
+ if(source.estimatedTotal!==source.rows.length||generated.estimatedTotal!==generated.rows.length)throw new Error('Dataset row counts do not match available records; full evaluation is not possible.');
+ if(new Set(source.columns).size!==source.columns.length||new Set(generated.columns).size!==generated.columns.length)throw new Error('Duplicate column names are not supported in evaluation.');
  const schemaMatch=source.columns.length===generated.columns.length&&source.columns.every((v,i)=>generated.columns[i]===v);
+ if(!schemaMatch)throw new Error('Source and generated schemas differ; align column names and order before comparing metrics.');
  const columns=source.columns;
  const key=(r:Record<string,string>)=>JSON.stringify(columns.map(c=>r[c]??''));
  const originals=new Set(source.rows.map(key));
