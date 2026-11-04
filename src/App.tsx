@@ -11,6 +11,7 @@ import type {DatasetRecord,Preview,SourceRecord} from './types';
 import {cleaned,previewFile,toCsv} from './parse';
 import {generateStatisticalDemo} from './synthetic';
 import {evaluatePreview,type EvaluationSummary} from './evaluation';
+import {traceLineage} from './lineage';
 import {addSource,completePreview,downloadDataset,removeDataset,saveDataset,watchDatasets,watchSources} from './store';
 
 type Page='home'|'datasets'|'sources'|'quality'|'governance'|'ai'|'settings';
@@ -120,6 +121,7 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
  const [syntheticSource,setSyntheticSource]=useState(''),[syntheticCount,setSyntheticCount]=useState(100),[syntheticSeed,setSyntheticSeed]=useState(42),[syntheticPreview,setSyntheticPreview]=useState<Preview|null>(null),[syntheticEvaluation,setSyntheticEvaluation]=useState<EvaluationSummary|null>(null);
  const inputRef=useRef<HTMLInputElement>(null);
  const selected=datasets.find(d=>d.id===selectedId)||null;
+ const lineage=useMemo(()=>selectedId?traceLineage(selectedId,datasets):null,[selectedId,datasets]);
  const shown=useMemo(()=>datasets.filter(d=>(filter==='all'||d.status===filter||d.format===filter)&&
   (!search||[d.name,d.source,d.format].join(' ').toLowerCase().includes(search.toLowerCase()))),[datasets,filter,search]);
  useEffect(()=>{
@@ -245,7 +247,21 @@ function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onE
         {selected.size>2*1024*1024&&<p className="small muted">File is over 2 MB. Server-side cleaning must be implemented before processing it safely.</p>}
        </Panel><Panel title="Before & after">{prepared?<><div className="compare-stats"><div><span>Before</span><strong>{number(selected.rows)}</strong><small>Records</small></div><ArrowRight size={18}/><div><span>After</span><strong>{number(prepared.estimatedTotal)}</strong><small>Records</small></div></div><p className="small muted">Preview of the transformed records. Save to create a separate dataset.</p><RowsTable preview={{...prepared,rows:prepared.rows.slice(0,12)}} limit={12}/></>
         :<Empty icon={RefreshCw} title="Preview your changes" description="Choose rules, then preview the result before creating a new dataset."/>}</Panel></div>}
-     {tab==='Lineage'&&<Panel title="Version and lineage"><div className="lineage"><div className="lineage-node"><span className="lineage-icon"><Database size={19}/></span><div><b>{selected.parentId?'Derived dataset':'Original dataset'}</b><p>{selected.name}</p><small>Saved {date(selected.createdAt)}</small></div></div>{selected.parentId&&<><div className="lineage-link"/><div className="lineage-node"><span className="lineage-icon"><FolderTree size={19}/></span><div><b>Source dataset</b><p>{datasets.find(d=>d.id===selected.parentId)?.name||'Source record no longer available'}</p><small>Origin preserved in metadata</small></div>{datasets.find(d=>d.id===selected.parentId)&&<Button variant="secondary" onClick={()=>{const origin=datasets.find(d=>d.id===selected.parentId);if(origin)open(origin);}}>Open</Button>}</div></>}</div></Panel>}
+     {tab==='Lineage'&&<Panel title="Version and lineage"><div className="lineage">
+      {lineage?.nodes.map((node,index)=><div key={node.kind+':'+(node.kind==='dataset'?node.dataset.id:node.id)}>
+       {index>0&&<div className="lineage-link"/>}
+       <div className="lineage-node"><span className="lineage-icon"><FolderTree size={19}/></span><div>
+        <b>{node.kind==='dataset'?(index===0?'Selected dataset':node.dataset.parentId?'Ancestor dataset':'Root dataset'):node.kind==='cycle'?'Cycle detected':'Missing ancestor'}</b>
+        <p>{node.kind==='dataset'?node.dataset.name:node.id}</p>
+        <small>{node.kind==='dataset'?'Saved '+date(node.dataset.createdAt):node.kind==='cycle'?'Invalid lineage metadata; traversal stopped.':'Source record no longer available; history is incomplete.'}</small>
+       </div>
+       {node.kind==='dataset'&&index>0&&<Button variant="secondary" onClick={()=>open(node.dataset)}>Open</Button>}
+       </div></div>)}
+      {lineage&&!lineage.complete&&<p className="muted small" role="alert">Lineage incomplete: missing or cyclic ancestor metadata. Do not treat this chain as a verified audit trail.</p>}
+      <div className="lineage-children"><strong>Derived datasets ({lineage?.descendants.length||0})</strong>
+       {lineage?.descendants.length?lineage.descendants.map(child=><div key={child.id} className="lineage-node"><span className="lineage-icon"><Database size={18}/></span><div><b>{child.name}</b><small>Saved {date(child.createdAt)}</small></div><Button variant="secondary" onClick={()=>open(child)}>Open</Button></div>):<p className="muted small">No known descendants in this workspace.</p>}
+      </div>
+     </div></Panel>}
     </>
     :page==='home'?<>
      <div className="page-title"><div><span className="eyebrow">YOUR WORKSPACE</span><h1>Good to see you.</h1><p>Your data foundation, at a glance.</p></div><div className="page-actions"><Button variant="secondary" onClick={()=>navigate('sources')}><Plus size={16}/> Connect source</Button><Button onClick={()=>inputRef.current?.click()}><Upload size={16}/> Upload dataset</Button></div></div>
