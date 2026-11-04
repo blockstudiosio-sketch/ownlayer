@@ -28,3 +28,15 @@ test('empty full datasets are handled without NaN',()=>{
  assert.equal(r.completenessPct,100);assert.equal(r.columnQuality[0].inferredType,'empty');
  assert.equal(r.columnQuality[0].missingPct,100);
 });
+
+test('rejects unexpected fields and blank headers rather than silently dropping data',()=>{
+ const p={columns:['x'],rows:[{x:'1',hidden:'sensitive'}],estimatedTotal:1,sampled:false};
+ assert.throws(()=>qualityReport(p),/unexpected row fields/);
+ assert.throws(()=>qualityReport({...p,columns:['']}),/nonempty column names/);
+});
+test('calendar validation does not misclassify impossible ISO dates',()=>{
+ const p={columns:['day'],rows:[{day:'2026-02-30'},{day:'2026-02-28'}],estimatedTotal:2,sampled:false};
+ assert.equal(qualityReport(p).columnQuality[0].inferredType,'text');
+ const leap={...p,rows:[{day:'2024-02-29'},{day:'2024-12-31'}]};
+ assert.equal(qualityReport(leap).columnQuality[0].inferredType,'date');
+});
