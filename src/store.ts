@@ -20,7 +20,7 @@ export async function addSource(uid:string,input:Pick<SourceRecord,'name'|'provi
  const {db}=services(),entry=doc(collection(db,'ownlayerUsers',uid,'sources'));
  await setDoc(entry,{...input,status:'registered',createdAt:Date.now()});
 }
-export async function saveDataset(uid:string,file:File,preview:Preview,parentId?:string):Promise<string>{
+export async function saveDataset(uid:string,file:File,preview:Preview,parentId?:string,originLabel?:string):Promise<string>{
  const {db,storage}=services(),entry=doc(collection(db,'ownlayerUsers',uid,'datasets'));
  const format=formatOf(file.name),storagePath='ownlayer/users/'+uid+'/datasets/'+entry.id+'/original.'+format;
  const object=ref(storage,storagePath);
@@ -34,7 +34,7 @@ export async function saveDataset(uid:string,file:File,preview:Preview,parentId?
   message:'Showing the first 40 stored preview rows.'
  };
  try{
-  await setDoc(entry,{name:file.name,source:parentId?'Prepared copy':'Local upload',format,
+  await setDoc(entry,{name:file.name,source:originLabel||(parentId?'Prepared copy':'Local upload'),format,
    size:file.size,rows:preview.estimatedTotal,columns:preview.columns,createdAt:Date.now(),
    storagePath,status:profile.issues.length?'needs-review':'ready',profile,
    parentId:parentId||null,sample});

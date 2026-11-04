@@ -16,7 +16,8 @@ This is a working frontend foundation, **not yet a production-ready full AI plat
 - Download original, view source/derived lineage, delete user-owned files.
 - Dashboard, Datasets, Sources, Quality, Governance, AI Workflows and Settings pages.
 - Honest integration status: external source synchronization, model training and synthetic generation are **not** yet implemented.
-- GitHub Actions static TypeScript/build checks.
+- GitHub Actions TypeScript checks, unit tests and production build.
+- Experimental, **non-private statistical synthetic-data preview** based on low-cardinality categories and numeric/date ranges. This is a DEMO baseline, not an AI foundation model; sensitive columns are blocked, source files remain unchanged, and generated samples can be saved as separate datasets.
 
 ## Local setup
 
@@ -39,7 +40,8 @@ The Firebase client is configured, but Storage and Firestore permissions must be
 - Storage policy limits uploaded files to 50 MiB. Production data ingestion requires scalable server-side processing.
 - Derived cleaning is allowed only on eligible files no larger than 2 MiB so it never accidentally saves a truncated preview as a complete dataset.
 - Source registration records locators but does not yet authenticate or synchronize remote providers.
-- Multi-tenant organization roles, privacy scanning, governance approvals, audit logs, enterprise file types, synthetic generation and model training require backend implementation and verification.
+- Multi-tenant organization roles, privacy scanning, governance approvals, audit logs, enterprise file types, secure AI model-backed synthetic generation and model training require backend implementation and verification.
+- The statistical demo is not differentially private, not anonymization and not safe for confidential/personal data.
 - Firebase usage may incur charges; check billing/project requirements before enabling paid services.
 - Before using client data, review security rules, consent, retention, encryption and backend operational readiness. A public **code repository** must never contain secrets or customer data.
 

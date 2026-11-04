@@ -9,6 +9,7 @@ import {
 import {auth,configured} from './firebase';
 import type {DatasetRecord,Preview,SourceRecord} from './types';
 import {cleaned,previewFile,toCsv} from './parse';
+import {generateStatisticalDemo} from './synthetic';
 import {addSource,completePreview,downloadDataset,removeDataset,saveDataset,watchDatasets,watchSources} from './store';
 
 type Page='home'|'datasets'|'sources'|'quality'|'governance'|'ai'|'settings';
@@ -112,6 +113,7 @@ function Workspace({user}:{user:User}){
  const [sourceModal,setSourceModal]=useState(false),[sourceName,setSourceName]=useState(''),[sourceProvider,setSourceProvider]=useState<SourceRecord['provider']>('github'),[sourceLocator,setSourceLocator]=useState('');
  const [fileSearch,setFileSearch]=useState(''),[trim,setTrim]=useState(true),[deduplicate,setDeduplicate]=useState(true);
  const [prepared,setPrepared]=useState<Preview|null>(null),[mobileMenu,setMobileMenu]=useState(false);
+ const [syntheticSource,setSyntheticSource]=useState(''),[syntheticCount,setSyntheticCount]=useState(100),[syntheticSeed,setSyntheticSeed]=useState(42),[syntheticPreview,setSyntheticPreview]=useState<Preview|null>(null);
  const inputRef=useRef<HTMLInputElement>(null);
  const selected=datasets.find(d=>d.id===selectedId)||null;
  const shown=useMemo(()=>datasets.filter(d=>(filter==='all'||d.status===filter||d.format===filter)&&
@@ -167,7 +169,29 @@ function Workspace({user}:{user:User}){
    setSelectedId(id);setTab('Overview');setNotice('Cleaned copy created. Original dataset is unchanged.');
   });
  }
+ async function generateSynthetic(){
+  await act('synthetic',async()=>{
+   const source=eligibleSynthetic.find(d=>d.id===syntheticSource);
+   if(!source)throw new Error('Choose an eligible source dataset first.');
+   const preview=await completePreview(source);
+   setSyntheticPreview(generateStatisticalDemo(preview,syntheticCount,syntheticSeed));
+   setNotice('Local statistical preview generated. No AI model was called, and no files were saved.');
+  });
+ }
+ async function saveSynthetic(){
+  if(!syntheticPreview)return;
+  await act('synthetic-save',async()=>{
+   const source=eligibleSynthetic.find(d=>d.id===syntheticSource);
+   if(!source)throw new Error('Original dataset not found. Select another source.');
+   const name=source.name.replace(/\.[^.]+$/,'')+'_statistical_demo.csv';
+   const file=new File([toCsv(syntheticPreview.columns,syntheticPreview.rows)],name,{type:'text/csv'});
+   const id=await saveDataset(user.uid,file,await previewFile(file),source.id,'Statistical demo');
+   setSyntheticPreview(null);setSelectedId(id);setPage('datasets');setTab('Overview');
+   setNotice('Statistical demo saved as a separate dataset; source preserved.');
+  });
+ }
  const rowTotal=datasets.reduce((n,d)=>n+(d.rows||0),0),withIssues=datasets.filter(d=>d.profile?.issues.length).length;
+ const eligibleSynthetic=datasets.filter(d=>d.size<=2*1024*1024&&['csv','tsv','json','jsonl'].includes(d.format));
  const visiblePreview=filePreview||selected?.sample||null;
 
  return <div className="shell">
@@ -245,8 +269,25 @@ function Workspace({user}:{user:User}){
       <Panel title="Privacy readiness"><div className="gov-icon"><CircleAlert size={25}/></div><h3>Needs advanced policy controls</h3><p>Automatic sensitive-data detection, retention enforcement, multi-user roles, audit logging and compliance certification are not implemented in this initial build.</p><Status tone="warn" label="Further work required"/></Panel></div>
     </>
     :page==='ai'?<>
-     <div className="page-title"><div><span className="eyebrow">NEXT STAGE</span><h1>AI workflows</h1><p>Build on top of clean and trusted datasets.</p></div></div>
-     <Panel><div className="ai-pending"><span className="ai-hero-icon"><Sparkles size={30}/></span><span className="eyebrow">PLANNED INTEGRATION</span><h2>Synthetic generation & model training</h2><p>These workflows need a secured server-side inference/training integration. Colibri or a cloud model can be connected later. No model has been trained or deployed by this app yet.</p><Button variant="secondary" onClick={()=>navigate('datasets')}>Go to datasets <ArrowRight size={16}/></Button></div></Panel>
+     <div className="page-title"><div><span className="eyebrow">EXPERIMENTAL WORKFLOWS</span><h1>Synthetic data lab</h1><p>Explore a local statistical baseline before integrating a trained generative model.</p></div></div>
+     <div className="info-strip"><CircleAlert size={18}/><div><b>Not AI-generated and NOT privacy-preserving</b><p>This browser-based demo draws independent column samples and numeric/date ranges. It may repeat sensitive values and does not preserve relationships between columns. Only use non-sensitive test data. Real synthetic-data foundation model training and inference are still pending.</p></div></div>
+     <Panel title="Generate a statistical demo">
+      <div className="synthetic-form">
+       <label>Source dataset<select aria-label="Synthetic source dataset" value={syntheticSource} onChange={e=>{setSyntheticSource(e.target.value);setSyntheticPreview(null);}}>
+        <option value="">Select a dataset</option>{eligibleSynthetic.map(d=><option key={d.id} value={d.id}>{d.name} ({number(d.rows)} records)</option>)}
+       </select></label>
+       <label>Output rows<input type="number" min="1" max="5000" aria-label="Synthetic row count" value={syntheticCount} onChange={e=>{setSyntheticCount(Number(e.target.value));setSyntheticPreview(null);}}/></label>
+       <label>Reproducible seed<input type="number" min="0" max="4294967295" aria-label="Synthetic seed" value={syntheticSeed} onChange={e=>{setSyntheticSeed(Number(e.target.value));setSyntheticPreview(null);}}/></label>
+       <Button onClick={()=>void generateSynthetic()} disabled={!syntheticSource||!!busy}>{busy==='synthetic'?'Generating…':'Generate preview'} <Sparkles size={16}/></Button>
+      </div>
+      {!eligibleSynthetic.length&&<p className="muted small synthetic-hint">Upload a CSV, TSV, JSON or JSONL file of 2 MB or less to use this preview. Sensitive identifier columns and high-cardinality text are blocked.</p>}
+      {syntheticPreview&&<div className="synthetic-results">
+       <div className="synthetic-result-head"><div><strong>{number(syntheticPreview.rows.length)} generated sample rows</strong><p>Independent statistical synthesis. No remote API requests were made.</p></div><Button onClick={()=>void saveSynthetic()} disabled={!!busy}>{busy==='synthetic-save'?'Saving…':'Save as new dataset'} <ArrowRight size={16}/></Button></div>
+       <RowsTable preview={syntheticPreview} limit={30}/>
+       <p className="muted small synthetic-hint">{syntheticPreview.message}</p>
+      </div>}
+     </Panel>
+     <Panel title="Foundation model roadmap"><div className="ai-pending"><span className="ai-hero-icon"><Sparkles size={30}/></span><span className="eyebrow">NOT YET TRAINED</span><h2>Secure model-backed generation</h2><p>A trained generator, privacy evaluation, domain fidelity, and secure server-side inference remain separate engineering tasks. This statistical preview is a reference baseline, not a trained LLM or production synthetic-data service.</p></div></Panel>
     </>
     :<><div className="page-title"><div><span className="eyebrow">WORKSPACE CONFIGURATION</span><h1>Settings</h1><p>Your workspace's connected environment.</p></div></div>
       <Panel title="Account details"><div className="setting-row"><span>Account email</span><b>{user.email}</b></div><div className="setting-row"><span>Firebase project ID</span><b>{import.meta.env.VITE_FIREBASE_PROJECT_ID||'Not configured'}</b></div><div className="setting-row"><span>Authentication</span><Status tone="good"label="Email / password"/></div><div className="setting-row"><span>Data storage</span><b>Cloud Firestore + Cloud Storage</b></div></Panel></>}
