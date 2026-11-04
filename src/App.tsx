@@ -52,7 +52,7 @@ function Startup(){
   <p className="muted small">Enable Email/Password Authentication, Firestore Database and Cloud Storage in the existing Firebase project. Never deploy the included security-rule fragments as replacements for the live shared rules. Never publish service-account credentials.</p>
  </Panel><a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="btn primary">Open Firebase Console <ArrowRight size={16}/></a></div>;
 }
-function Login(){
+function Login({onDemo}:{onDemo:()=>void}){
  const [mode,setMode]=useState<'login'|'register'>('login'),[email,setEmail]=useState(''),[password,setPassword]=useState('');
  const [error,setError]=useState(''),[success,setSuccess]=useState(''),[busy,setBusy]=useState(false);
  async function submit(e:React.FormEvent){
@@ -87,6 +87,7 @@ function Login(){
    {success&&<div className="inline-alert success" role="status"><Check size={15}/>{success}</div>}
    {mode==='login'&&<button className="auth-reset" type="button" onClick={()=>void resetPassword()} disabled={busy}>Forgot password?</button>}
    <button className="btn primary full" type="submit" disabled={busy}>{busy?'Please wait…':mode==='login'?'Sign in':'Create account'}<ArrowRight size={16}/></button>
+   <button className="btn secondary full demo-entry" type="button" onClick={onDemo}><Sparkles size={16}/> Explore interactive demo — no sign-in</button>
    <div className="auth-swap">{mode==='login'?"Don't have an account?":"Already have an account?"} <button type="button" onClick={()=>{setError('');setMode(mode==='login'?'register':'login');}}>{mode==='login'?'Create an account':'Sign in'}</button></div>
    </form></div><div className="auth-bottom">© 2026 Block Studios · Ownlayer</div></div>;
 }
@@ -99,13 +100,15 @@ function RowsTable({preview,limit=60,filter=''}:{preview:Preview;limit?:number;f
 }
 function App(){
  const [user,setUser]=useState<User|null>(null),[checking,setChecking]=useState(true);
+ const [demo,setDemo]=useState(false);
  useEffect(()=>{if(!auth){setChecking(false);return;}return onAuthStateChanged(auth,u=>{setUser(u);setChecking(false);});},[]);
+ if(demo)return <Workspace user={{uid:'ownlayer-demo',email:'demo@ownlayer.local'} as User} isDemo onExitDemo={()=>setDemo(false)}/>;
  if(!configured)return <Startup/>;
  if(checking)return <div className="app-loading"><span className="brand-mark"><Layers3 size={25}/></span>Loading Ownlayer…</div>;
- return user?<Workspace user={user}/>:<Login/>;
+ return user?<Workspace user={user}/>:<Login onDemo={()=>setDemo(true)}/>;
 }
 
-function Workspace({user}:{user:User}){
+function Workspace({user,isDemo=false,onExitDemo}:{user:User;isDemo?:boolean;onExitDemo?:()=>void}){
  const [page,setPage]=useState<Page>('home'),[datasets,setDatasets]=useState<DatasetRecord[]>([]),[sources,setSources]=useState<SourceRecord[]>([]);
  const [selectedId,setSelectedId]=useState<string|null>(null),[tab,setTab]=useState<DetailTab>('Overview');
  const [busy,setBusy]=useState(''),[notice,setNotice]=useState(''),[error,setError]=useState('');
@@ -200,14 +203,15 @@ function Workspace({user}:{user:User}){
    <div className="workspace-select"><span className="workspace-avatar">B</span><div><b>Block Studios</b><small>Personal workspace</small></div><ChevronRight size={16}/></div>
    <div className="nav-label">WORKSPACE</div><nav aria-label="Primary navigation">{NAV.map(item=><button key={item.id} className={'nav-item '+(page===item.id?'active':'')} onClick={()=>navigate(item.id)}><item.icon size={17}/>{item.label}{item.id==='datasets'&&<small>{datasets.length}</small>}</button>)}</nav>
    <div className="sidebar-spacer"/><div className="sidebar-footer"><div className="sidebar-profile"><span className="profile-avatar">{(user.email||'U')[0].toUpperCase()}</span><div><strong title={user.email||''}>{user.email?.split('@')[0]||'User'}</strong><small>Workspace member</small></div></div>
-    <button onClick={()=>{if(auth)void signOut(auth);}} className="signout"><LogOut size={16}/>Sign out</button>
+    <button onClick={()=>{if(isDemo){onExitDemo?.();return;}if(auth)void signOut(auth);}} className="signout"><LogOut size={16}/>{isDemo?'Exit demo':'Sign out'}</button>
    </div>
   </aside>
   {mobileMenu&&<button className="menu-scrim" aria-label="Close menu" onClick={()=>setMobileMenu(false)}/>}
   <div className="main-shell">
    <header className="topbar"><button className="mobile-nav" onClick={()=>setMobileMenu(true)} aria-label="Open navigation"><Menu size={21}/></button><div className="breadcrumbs"><span>Workspace</span><ChevronRight size={14}/><strong>{selected?selected.name:NAV.find(x=>x.id===page)?.label}</strong></div>
-    <div className="top-right"><span className="top-environment"><span/>Firebase workspace</span><span className="top-avatar">{(user.email||'U')[0].toUpperCase()}</span></div></header>
+    <div className="top-right"><span className="top-environment"><span/>{isDemo?'Local interactive demo':'Firebase workspace'}</span><span className="top-avatar">{(user.email||'U')[0].toUpperCase()}</span></div></header>
    <main className="main-content">
+    {isDemo&&<div className="inline-alert demo-notice" role="status"><Sparkles size={16}/><span><strong>INTERACTIVE DEMO</strong> · Sample records only. Changes stay in this browser; no cloud data or AI model inference is used.</span><button onClick={()=>onExitDemo?.()} aria-label="Exit demo"><X size={16}/></button></div>}
     {notice&&<div className="inline-alert success" role="status"><Check size={16}/><span>{notice}</span><button onClick={()=>setNotice('')} aria-label="Dismiss"><X size={16}/></button></div>}
     {error&&<div className="inline-alert danger" role="alert"><CircleAlert size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss"><X size={16}/></button></div>}
     <input type="file" ref={inputRef} accept=".csv,.tsv,.json,.jsonl,.txt" hidden aria-label="Upload data file" onChange={e=>void upload(e.target.files?.[0])}/>
@@ -290,7 +294,7 @@ function Workspace({user}:{user:User}){
      <Panel title="Foundation model roadmap"><div className="ai-pending"><span className="ai-hero-icon"><Sparkles size={30}/></span><span className="eyebrow">NOT YET TRAINED</span><h2>Secure model-backed generation</h2><p>A trained generator, privacy evaluation, domain fidelity, and secure server-side inference remain separate engineering tasks. This statistical preview is a reference baseline, not a trained LLM or production synthetic-data service.</p></div></Panel>
     </>
     :<><div className="page-title"><div><span className="eyebrow">WORKSPACE CONFIGURATION</span><h1>Settings</h1><p>Your workspace's connected environment.</p></div></div>
-      <Panel title="Account details"><div className="setting-row"><span>Account email</span><b>{user.email}</b></div><div className="setting-row"><span>Firebase project ID</span><b>{import.meta.env.VITE_FIREBASE_PROJECT_ID||'Not configured'}</b></div><div className="setting-row"><span>Authentication</span><Status tone="good"label="Email / password"/></div><div className="setting-row"><span>Data storage</span><b>Cloud Firestore + Cloud Storage</b></div></Panel></>}
+      <Panel title="Account details"><div className="setting-row"><span>Account email</span><b>{user.email}</b></div><div className="setting-row"><span>Environment</span><b>{isDemo?'Offline interactive demo':'Firebase project ai-engine-8ab26'}</b></div><div className="setting-row"><span>Authentication</span><Status tone="good"label="Email / password"/></div><div className="setting-row"><span>Data storage</span><b>{isDemo?'Browser local storage (sample data)':'Cloud Firestore + Cloud Storage'}</b></div></Panel></>}
    </main>
   </div>
   {sourceModal&&<div className="modal-backdrop" onMouseDown={()=>setSourceModal(false)}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="source-title" onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">DATA CONNECTIONS</span><h2 id="source-title">Register a source</h2></div><button onClick={()=>setSourceModal(false)} aria-label="Close"><X size={21}/></button></div><p className="muted small">Register a source location for your catalog. It does not fetch private data or connect credentials yet.</p>

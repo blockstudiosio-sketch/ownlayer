@@ -4,6 +4,13 @@
 
 This is a working frontend foundation, **not yet a production-ready full AI platform**.
 
+## Client demo quick start
+
+- The public build offers **Explore interactive demo — no sign-in** on the login page. This includes three curated **fictitious** datasets (agriculture sensors, retail orders, insurance claims).
+- Works **without Firebase authorization** in browser-local demo mode; it supports dataset exploration, upload of CSV/TSV/JSON/JSONL/TXT up to 1 MB, profiling, preparation, synthetic **statistical** preview, saving and downloading demo copies, and basic source registry.
+- Demo persistence is **this browser's localStorage only**, not shared with anyone or synced to Firestore. It is NOT a live production data backend or trained model. Avoid confidential or client data in this demo.
+- Firebase live sign-in still uses the existing project, and requires safely merging security rules and deploying its separate Hosting target.
+
 ## What is implemented
 
 - White/light professional responsive UI (no dark theme).

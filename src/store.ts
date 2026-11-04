@@ -1,3 +1,4 @@
+import {demoAddSource,demoCompletePreview,demoDownload,demoRemove,demoSave,demoWatchDatasets,demoWatchSources,isDemoUid} from './demoStore';
 import {collection,deleteDoc,doc,onSnapshot,setDoc,type Unsubscribe} from 'firebase/firestore';
 import {deleteObject,getDownloadURL,ref,uploadBytes} from 'firebase/storage';
 import {db,storage} from './firebase';
@@ -9,18 +10,22 @@ const services=()=>{
  return {db,storage};
 };
 export function watchDatasets(uid:string,ready:(data:DatasetRecord[])=>void,error:(e:string)=>void):Unsubscribe{
+ if(isDemoUid(uid))return demoWatchDatasets(ready);
  const {db}=services();
  return onSnapshot(collection(db,'ownlayerUsers',uid,'datasets'),snap=>ready(snap.docs.map(d=>({...(d.data() as DatasetRecord),id:d.id})).sort((a,b)=>b.createdAt-a.createdAt)),e=>error(e.message));
 }
 export function watchSources(uid:string,ready:(data:SourceRecord[])=>void,error:(e:string)=>void):Unsubscribe{
+ if(isDemoUid(uid))return demoWatchSources(ready);
  const {db}=services();
  return onSnapshot(collection(db,'ownlayerUsers',uid,'sources'),snap=>ready(snap.docs.map(d=>({...(d.data() as SourceRecord),id:d.id})).sort((a,b)=>b.createdAt-a.createdAt)),e=>error(e.message));
 }
 export async function addSource(uid:string,input:Pick<SourceRecord,'name'|'provider'|'locator'>){
+ if(isDemoUid(uid))return demoAddSource(input);
  const {db}=services(),entry=doc(collection(db,'ownlayerUsers',uid,'sources'));
  await setDoc(entry,{...input,status:'registered',createdAt:Date.now()});
 }
 export async function saveDataset(uid:string,file:File,preview:Preview,parentId?:string,originLabel?:string):Promise<string>{
+ if(isDemoUid(uid))return demoSave(file,preview,parentId,originLabel);
  const {db,storage}=services(),entry=doc(collection(db,'ownlayerUsers',uid,'datasets'));
  const format=formatOf(file.name),storagePath='ownlayer/users/'+uid+'/datasets/'+entry.id+'/original.'+format;
  const object=ref(storage,storagePath);
@@ -42,6 +47,7 @@ export async function saveDataset(uid:string,file:File,preview:Preview,parentId?
  return entry.id;
 }
 export async function removeDataset(uid:string,item:DatasetRecord):Promise<void>{
+ if(isDemoUid(uid))return demoRemove(item);
  const {db,storage}=services();
  // Delete the file first. If Storage fails, keep the Firestore record so users
  // can retry instead of silently leaving an undeletable orphaned file.
@@ -54,6 +60,7 @@ export async function removeDataset(uid:string,item:DatasetRecord):Promise<void>
  await deleteDoc(doc(db,'ownlayerUsers',uid,'datasets',item.id));
 }
 export async function downloadDataset(item:DatasetRecord):Promise<void>{
+ if(item.storagePath.startsWith('localdemo:'))return demoDownload(item);
  const {storage}=services();
  const url=await getDownloadURL(ref(storage,item.storagePath));
  const res=await fetch(url);
@@ -63,6 +70,7 @@ export async function downloadDataset(item:DatasetRecord):Promise<void>{
  setTimeout(()=>URL.revokeObjectURL(href),30000);
 }
 export async function completePreview(item:DatasetRecord):Promise<Preview>{
+ if(item.storagePath.startsWith('localdemo:'))return demoCompletePreview(item);
  if(item.size>2*1024*1024)throw new Error('Cleaning currently supports files up to 2 MB. Large-file processing needs the backend.');
  if(!['csv','tsv','json','jsonl'].includes(item.format))throw new Error('Cleaning is supported for tabular or JSON files only.');
  const {storage}=services(),url=await getDownloadURL(ref(storage,item.storagePath)),res=await fetch(url);

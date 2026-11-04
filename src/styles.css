@@ -193,3 +193,7 @@ nav{display:grid;gap:5px}
 .auth-reset{display:block;margin:-6px 0 14px auto;border:0;background:#fff;color:#0b8054;font-size:12px;font-weight:750;cursor:pointer}.auth-reset:disabled{opacity:.5;cursor:not-allowed}.auth-reset:hover:not(:disabled){text-decoration:underline}
 
 .synthetic-form{display:grid;grid-template-columns:minmax(220px,2fr) minmax(110px,1fr) minmax(110px,1fr) auto;align-items:end;gap:15px;padding:25px}.synthetic-form label{display:grid;gap:8px;font-size:11px;font-weight:750;color:#4f6758}.synthetic-form select,.synthetic-form input{height:42px;border:1px solid #dae7dd;border-radius:9px;padding:0 11px;color:#2b4335;background:#fff;min-width:0}.synthetic-form .btn{height:42px}.synthetic-hint{padding:0 25px 20px}.synthetic-results{border-top:1px solid #eaf0eb}.synthetic-result-head{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:20px 24px}.synthetic-result-head strong{font-size:14px}.synthetic-result-head p{font-size:11px;color:#8d9d91}.synthetic-results .table-scroll{max-height:400px}@media(max-width:1050px){.synthetic-form{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.synthetic-form{grid-template-columns:1fr}.synthetic-result-head{align-items:flex-start;flex-direction:column}}
+
+/* Offline client-demo affordances; the entire app remains white. */
+.demo-entry{margin-top:12px!important;display:flex;align-items:center;justify-content:center;gap:9px!important}
+.demo-notice{background:#fffdf4;border-color:#f0e1b5;color:#7d6026}.demo-notice strong{font-weight:850;color:#866017}
