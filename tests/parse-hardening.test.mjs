@@ -28,4 +28,9 @@ test('CSV export neutralizes spreadsheet formula execution in data cells',()=>{
  assert.match(output,/'\+SUM/);
  assert.match(output,/' @cmd/);
  assert.match(output,/normal/);
+ const injected=toCsv(['  =danger','-danger','@danger'],[{'  =danger':'  =1+1','-danger':'-2+3','@danger':'@SUM(1)'}]);
+ assert.match(injected,/'  =1\+1/);
+ assert.match(injected,/'-2\+3/);
+ assert.match(injected,/'@SUM/);
+ assert.match(toCsv(['tab'],[{tab:'\t=SUM(1)'}]),/'\t=SUM/);
 });

@@ -17,7 +17,7 @@ test('schema drift detects removed columns, type changes, and missingness drift'
  const result=compareSchema(old,next);
  assert.deepEqual(result.addedColumns,['d']);
  assert.deepEqual(result.removedColumns,['c']);
- assert.deepEqual(result.changedTypes,[{column:'a',before:'number',after:'text'}]);
+ assert.deepEqual(result.changedTypes,[{column:'a',before:'number',after:'text'},{column:'b',before:'text',after:'empty'}]);
  assert.equal(result.missingRateChanges[0].deltaPct,100);
  assert.equal(result.compatible,false);
 });

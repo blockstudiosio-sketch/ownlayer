@@ -1,5 +1,5 @@
 {
-  "sprint_run": 3,
+  "sprint_run": 4,
   "started_at_utc": "2026-11-04T12:36:00Z",
   "goal": "10-hour unattended implementation and verified progress report",
   "notes": "This file tracks scheduled automation iterations, not product completion. Increment sprint_run on each future scheduled run.",
@@ -23,6 +23,14 @@
     {
       "run": 3,
       "changes": "Add deterministic per-column schema inference and complete-dataset drift checks with regression tests. Track missing-rate shifts, removed/added columns and type changes; reject sampled inputs.",
+      "branch": "development/after-client-demo",
+      "commit_status": "committed",
+      "ci_status": "pending",
+      "live_demo_unchanged": true
+    },
+    {
+      "run": 4,
+      "changes": "Fix CSV formula neutralization and quoting, add spreadsheet-injection regressions, align schema-drift expectation for empty-column transition.",
       "branch": "development/after-client-demo",
       "commit_status": "committed",
       "ci_status": "pending",
