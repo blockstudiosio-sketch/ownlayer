@@ -5,7 +5,7 @@ export const formatOf=(name:string):DatasetFormat=>{
  return ['csv','tsv','json','jsonl','txt'].includes(ext)?ext as DatasetFormat:'other';
 };
 const stringify=(v:unknown):string=>v==null?'':typeof v==='string'?v:typeof v==='object'?JSON.stringify(v):String(v);
-function delimited(text:string,sep:string):string[][]{
+function delimited(text:string,sep:string,truncated=false):string[][]{
  const out:string[][]=[];let row:string[]=[],field='',quoted=false;
  for(let i=0;i<text.length;i++){
   const c=text[i];
@@ -16,9 +16,13 @@ function delimited(text:string,sep:string):string[][]{
    row.push(field);field='';
    if(row.some(Boolean))out.push(row);
    row=[];
-   if(out.length>50000)throw new Error('This file exceeds the current 50,000-row local parsing limit.');
+   if(out.length>50000)throw new Error('This preview exceeds the current 50,000-row local parsing limit.');
   }else field+=c;
  }
+ // A byte-limited preview can end half-way through a CSV field, quoted value,
+ // or UTF-8 record. Drop that incomplete trailing record rather than invent
+ // a row or rejecting the entire upload. A full file must still be valid.
+ if(truncated)return out;
  if(quoted)throw new Error('Unclosed quotation mark in file.');
  if(field||row.length){row.push(field);out.push(row);}
  return out;
@@ -33,14 +37,18 @@ const headers=(names:string[]):string[]=>{
 export function parseText(input:string,format:DatasetFormat,truncated=false):Preview{
  const text=input.replace(/^\uFEFF/,'');
  if(format==='csv'||format==='tsv'){
-  const arr=delimited(text,format==='csv'?',':'\t');
+  const arr=delimited(text,format==='csv'?',':'\t',truncated);
   const columns=headers(arr.shift()||[]);
   const rows=arr.map(cells=>Object.fromEntries(columns.map((col,i)=>[col,cells[i]??''])));
   return {columns,rows,estimatedTotal:truncated?null:rows.length,sampled:truncated,message:truncated?'Partial file preview: full record count and quality not evaluated.':undefined};
  }
  if(format==='json'||format==='jsonl'){
-  if(truncated&&format==='json')throw new Error('Large JSON needs server-side parsing; original upload is still supported.');
-  const values:unknown[]=format==='json'?(Array.isArray(JSON.parse(text))?JSON.parse(text) as unknown[]:[JSON.parse(text)]):text.split(/\r?\n/).filter(Boolean).map(line=>JSON.parse(line) as unknown);
+  if(truncated&&format==='json')return {columns:[],rows:[],estimatedTotal:null,sampled:true,message:'Large JSON uploaded without a local preview. Full-array parsing needs a server-side worker.'};
+  const parsedJson:unknown=format==='json'?JSON.parse(text):null;
+  const lines=text.split(/\r?\n/);
+  // Ignore the last JSONL line if the source was clipped mid-record.
+  if(truncated&&!text.endsWith('\n')&&!text.endsWith('\r'))lines.pop();
+  const values:unknown[]=format==='json'?(Array.isArray(parsedJson)?parsedJson:[parsedJson]):lines.filter(line=>line.trim().length>0).map(line=>JSON.parse(line) as unknown);
   if(values.length>50000)throw new Error('This file exceeds the current 50,000-record local parsing limit.');
   const rawHeaders=Array.from(new Set(values.flatMap(x=>x!==null&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x):['value'])));
   const columns=headers(rawHeaders);
@@ -49,6 +57,7 @@ export function parseText(input:string,format:DatasetFormat,truncated=false):Pre
  }
  if(format==='txt'){
   const lines=text.split(/\r?\n/);
+  if(truncated&&!text.endsWith('\n')&&!text.endsWith('\r'))lines.pop();
   return {columns:['line','text'],rows:lines.map((line,i)=>({line:String(i+1),text:line})),estimatedTotal:truncated?null:lines.length,sampled:truncated,message:truncated?'Partial text preview only.':undefined};
  }
  throw new Error('Supported formats for data preview: CSV, TSV, JSON, JSONL and TXT.');
