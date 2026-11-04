@@ -10,19 +10,19 @@ const services=()=>{
 };
 export function watchDatasets(uid:string,ready:(data:DatasetRecord[])=>void,error:(e:string)=>void):Unsubscribe{
  const {db}=services();
- return onSnapshot(collection(db,'users',uid,'datasets'),snap=>ready(snap.docs.map(d=>({...(d.data() as DatasetRecord),id:d.id})).sort((a,b)=>b.createdAt-a.createdAt)),e=>error(e.message));
+ return onSnapshot(collection(db,'ownlayerUsers',uid,'datasets'),snap=>ready(snap.docs.map(d=>({...(d.data() as DatasetRecord),id:d.id})).sort((a,b)=>b.createdAt-a.createdAt)),e=>error(e.message));
 }
 export function watchSources(uid:string,ready:(data:SourceRecord[])=>void,error:(e:string)=>void):Unsubscribe{
  const {db}=services();
- return onSnapshot(collection(db,'users',uid,'sources'),snap=>ready(snap.docs.map(d=>({...(d.data() as SourceRecord),id:d.id})).sort((a,b)=>b.createdAt-a.createdAt)),e=>error(e.message));
+ return onSnapshot(collection(db,'ownlayerUsers',uid,'sources'),snap=>ready(snap.docs.map(d=>({...(d.data() as SourceRecord),id:d.id})).sort((a,b)=>b.createdAt-a.createdAt)),e=>error(e.message));
 }
 export async function addSource(uid:string,input:Pick<SourceRecord,'name'|'provider'|'locator'>){
- const {db}=services(),entry=doc(collection(db,'users',uid,'sources'));
+ const {db}=services(),entry=doc(collection(db,'ownlayerUsers',uid,'sources'));
  await setDoc(entry,{...input,status:'registered',createdAt:Date.now()});
 }
 export async function saveDataset(uid:string,file:File,preview:Preview,parentId?:string):Promise<string>{
- const {db,storage}=services(),entry=doc(collection(db,'users',uid,'datasets'));
- const format=formatOf(file.name),storagePath='users/'+uid+'/datasets/'+entry.id+'/original.'+format;
+ const {db,storage}=services(),entry=doc(collection(db,'ownlayerUsers',uid,'datasets'));
+ const format=formatOf(file.name),storagePath='ownlayer/users/'+uid+'/datasets/'+entry.id+'/original.'+format;
  const object=ref(storage,storagePath);
  await uploadBytes(object,file,{contentType:file.type||'text/plain'});
  const profile=profileOf(preview);
@@ -43,7 +43,7 @@ export async function saveDataset(uid:string,file:File,preview:Preview,parentId?
 }
 export async function removeDataset(uid:string,item:DatasetRecord):Promise<void>{
  const {db,storage}=services();
- await deleteDoc(doc(db,'users',uid,'datasets',item.id));
+ await deleteDoc(doc(db,'ownlayerUsers',uid,'datasets',item.id));
  await deleteObject(ref(storage,item.storagePath)).catch(()=>undefined);
 }
 export async function downloadDataset(item:DatasetRecord):Promise<void>{

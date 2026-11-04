@@ -30,12 +30,7 @@
           }
         ]
       }
-    ]
-  },
-  "firestore": {
-    "rules": "firestore.rules"
-  },
-  "storage": {
-    "rules": "storage.rules"
+    ],
+    "target": "ownlayer"
   }
 }

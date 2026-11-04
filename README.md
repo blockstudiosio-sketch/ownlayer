@@ -22,16 +22,16 @@ This is a working frontend foundation, **not yet a production-ready full AI plat
 
 1. Use Node.js 22 or newer.
 2. Run \`npm install\`.
-3. Create a **new** Firebase project; enable Email/Password Authentication, Cloud Firestore and Cloud Storage.
-4. Register a Firebase web app. Copy \`.env.example\` to \`.env\`, then add Firebase web-app config (never a service-account JSON).
-5. Deploy \`firestore.rules\` and \`storage.rules\` using the Firebase CLI, from an authorized Firebase account.
+3. Ownlayer reuses the existing Firebase project \`ai-engine-8ab26\`. The public web app configuration is already available in the app, so a new project is not required.
+4. To use another project for local testing, copy \`.env.example\` to \`.env\` and override its web-app settings. Never use service-account credentials in browser code.
+5. **Do not deploy this repo's Firestore or Storage rules directly to the shared project.** Review and merge into existing live rules with authorized Firebase access; see \`docs/existing-firebase.md\`.
 6. Run \`npm run check\`, \`npm run build\`, then \`npm run dev\`.
 
-When Firebase is not configured, the app shows a setup screen instead of pretending data is connected.
+The Firebase client is configured, but Storage and Firestore permissions must be merged with the existing live rules before all dataset operations will work.
 
 ## Firebase hosting
 
-\`firebase.json\` is preconfigured for a Vite single-page app. Choose your new Firebase project in the Firebase CLI, build, then deploy Hosting and security rules. No deploy is performed automatically by the current CI.
+\`firebase.json\` is preconfigured for a Vite single-page app. The existing AI Engine project's DEFAULT Hosting site must not be overwritten. The configured \`ownlayer\` Hosting target must be mapped to a **separate site** in the existing Firebase project before any deploy. See \`docs/existing-firebase.md\`. No deployment is performed automatically by CI.
 
 ## Important limits / upcoming work
 
@@ -43,4 +43,4 @@ When Firebase is not configured, the app shows a setup screen instead of pretend
 - Firebase usage may incur charges; check billing/project requirements before enabling paid services.
 - Before using client data, review security rules, consent, retention, encryption and backend operational readiness. A public **code repository** must never contain secrets or customer data.
 
-Original AI Engine project is unchanged.
+Original AI Engine project is unchanged. Ownlayer Firestore records and Storage objects use isolated namespaces. The live Firebase rules/site have not been changed.

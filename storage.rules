@@ -1,11 +1,13 @@
+// Ownlayer-only Storage rules proposal. Merge with the EXISTING live project's
+// rules, never deploy this whole file as a replacement for AI Engine rules.
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /users/{userId}/datasets/{datasetId}/{fileName} {
+    match /ownlayer/users/{userId}/datasets/{datasetId}/{fileName} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow create, update: if request.auth != null && request.auth.uid == userId
-        && request.resource.size < 50 * 1024 * 1024
-        && request.resource.contentType.matches('text/.*|application/(json|csv|octet-stream|vnd\\.ms-excel|pdf|vnd\\.openxmlformats-officedocument\\..*)');
+        && request.resource.size <= 50 * 1024 * 1024
+        && request.resource.contentType.matches('text/.*|application/(json|csv|octet-stream)');
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
   }
