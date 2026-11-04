@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
-import {onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,type User} from 'firebase/auth';
+import {onAuthStateChanged,createUserWithEmailAndPassword,sendPasswordResetEmail,signInWithEmailAndPassword,signOut,type User} from 'firebase/auth';
 import {
  Activity,ArrowDownToLine,ArrowLeft,ArrowRight,BarChart3,Check,CheckCircle2,ChevronRight,
  CircleAlert,Cloud,Database,FileCode2,FileSpreadsheet,FileText,FolderTree,
@@ -45,21 +45,32 @@ function Button({children,onClick,variant='primary',disabled=false}:{children:Re
 }
 function Startup(){
  return <div className="setup-wrap"><div className="brand-mark"><Layers3 size={27}/></div><h1>Ownlayer is ready for Firebase setup.</h1>
- <p>The frontend, data workspace and Firebase integration code are in place. Connect a new Firebase project to activate sign-in and storage.</p>
+ <p>The frontend, data workspace and Firebase integration code are in place. Ownlayer uses the existing Firebase project. Verify the shared project's access rules and the separate Hosting target before deploying.</p>
  <Panel title="Required Firebase Web App environment variables">
   <pre className="env-sample">VITE_FIREBASE_API_KEY=...{'\n'}VITE_FIREBASE_AUTH_DOMAIN=...{'\n'}VITE_FIREBASE_PROJECT_ID=...{'\n'}VITE_FIREBASE_STORAGE_BUCKET=...{'\n'}VITE_FIREBASE_APP_ID=...</pre>
-  <p className="muted small">Enable Email/Password Authentication, Firestore Database and Cloud Storage in the new Firebase project. Deploy the included security rules before adding real data. Never publish service-account credentials.</p>
+  <p className="muted small">Enable Email/Password Authentication, Firestore Database and Cloud Storage in the existing Firebase project. Never deploy the included security-rule fragments as replacements for the live shared rules. Never publish service-account credentials.</p>
  </Panel><a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="btn primary">Open Firebase Console <ArrowRight size={16}/></a></div>;
 }
 function Login(){
  const [mode,setMode]=useState<'login'|'register'>('login'),[email,setEmail]=useState(''),[password,setPassword]=useState('');
- const [error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const [error,setError]=useState(''),[success,setSuccess]=useState(''),[busy,setBusy]=useState(false);
  async function submit(e:React.FormEvent){
   e.preventDefault();if(!auth)return;
-  setBusy(true);setError('');
+  setBusy(true);setError('');setSuccess('');
   try{if(mode==='login')await signInWithEmailAndPassword(auth,email,password);
    else await createUserWithEmailAndPassword(auth,email,password);
   }catch(err){setError(err instanceof Error?err.message:'Unable to authenticate.');}
+  finally{setBusy(false);}
+ }
+ async function resetPassword(){
+  const address=email.trim();
+  if(!address){setError('Enter your email address first, then select Reset password.');return;}
+  setBusy(true);setError('');setSuccess('');
+  try{
+   if(!auth)throw new Error('Firebase Authentication is unavailable.');
+   await sendPasswordResetEmail(auth,address);
+   setSuccess('If this email has an account, a password reset link will be sent. Check your inbox.');
+  }catch(err){setError(err instanceof Error?err.message:'Unable to request a password reset.');}
   finally{setBusy(false);}
  }
  return <div className="auth-shell">
@@ -72,6 +83,8 @@ function Login(){
    <label>Email address<input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" placeholder="you@company.com" required/></label>
    <label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete={mode==='login'?'current-password':'new-password'} minLength={6} required placeholder="At least 6 characters"/></label>
    {error&&<div className="error-inline" role="alert"><CircleAlert size={15}/>{error}</div>}
+   {success&&<div className="inline-alert success" role="status"><Check size={15}/>{success}</div>}
+   {mode==='login'&&<button className="auth-reset" type="button" onClick={()=>void resetPassword()} disabled={busy}>Forgot password?</button>}
    <button className="btn primary full" type="submit" disabled={busy}>{busy?'Please wait…':mode==='login'?'Sign in':'Create account'}<ArrowRight size={16}/></button>
    <div className="auth-swap">{mode==='login'?"Don't have an account?":"Already have an account?"} <button type="button" onClick={()=>{setError('');setMode(mode==='login'?'register':'login');}}>{mode==='login'?'Create an account':'Sign in'}</button></div>
    </form></div><div className="auth-bottom">© 2026 Block Studios · Ownlayer</div></div>;

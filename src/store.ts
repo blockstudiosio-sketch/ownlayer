@@ -43,8 +43,15 @@ export async function saveDataset(uid:string,file:File,preview:Preview,parentId?
 }
 export async function removeDataset(uid:string,item:DatasetRecord):Promise<void>{
  const {db,storage}=services();
+ // Delete the file first. If Storage fails, keep the Firestore record so users
+ // can retry instead of silently leaving an undeletable orphaned file.
+ // A successful Storage deletion followed by Firestore failure is retryable:
+ // the next deletion ignores the already-missing object.
+ try{await deleteObject(ref(storage,item.storagePath));}
+ catch(error){
+  if(!(error instanceof Error) || !error.message.includes('storage/object-not-found'))throw error;
+ }
  await deleteDoc(doc(db,'ownlayerUsers',uid,'datasets',item.id));
- await deleteObject(ref(storage,item.storagePath)).catch(()=>undefined);
 }
 export async function downloadDataset(item:DatasetRecord):Promise<void>{
  const {storage}=services();
